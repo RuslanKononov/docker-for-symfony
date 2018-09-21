@@ -2,7 +2,7 @@ version: '2'
 
 services:
     db:
-        container_name: sf_pgsql
+        container_name: pgsql
         image: postgres:9
         volumes:
             - "./data/db:/var/lib/postgresql"
@@ -16,7 +16,7 @@ services:
             vpcbr:
                 ipv4_address: 10.5.0.3
     redis:
-        container_name: sf_redis
+        container_name: redis
         image: redis:alpine
         ports:
             - "6379:6379"
@@ -24,57 +24,72 @@ services:
             vpcbr:
                 ipv4_address: 10.5.0.4
     php:
-        container_name: sf_phpfpm
+        container_name: php
         build:
             context: php7-fpm
             args:
                 TIMEZONE: ${TIMEZONE}
-        ports:
-            - "80:8000"
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.2
+        ports:
+            - "9000:9000"
+            - "9001:9001"
         volumes:
             - ${SYMFONY_APP_PATH}:/var/www/symfony
-            - ./logs/symfony:/var/www/symfony/var/logs
+            - ./logs/symfony:/var/www/symfony/app/logs
         links:
             - redis
             - db
-            - centrifugo
-    nodejs:
-        container_name: sf_nodejs
-        image: node:alpine
-        user: "node"
-        volumes:
-            - ${SYMFONY_APP_PATH}:/var/www/symfony
-        working_dir: /var/www/symfony
-    centrifugo:
-        container_name: sf_centrifugo
-        image: centrifugo/centrifugo
-        command: centrifugo -c config.yml -w --port=8000  --log_level=debug --debug --insecure --address=0.0.0.0
+#            - centrifugo
+    nginx:
+        container_name: nginx
+        build: nginx
         ports:
-            - "8000:8000"
+            - "80:80"
+        volumes_from:
+            - php
+        volumes:
+            - ./logs/nginx/:/var/log/nginx
         networks:
             vpcbr:
-                ipv4_address: 10.5.0.5
-        volumes:
-            - ./centrifugo/config.yml:/centrifugo/config.yml   # centrifugo -c config.json -w /opt/centrifugo/web
-    rabbit:
-        container_name: sf_rabbit
-        hostname: rabbit
-        image: rabbitmq:3-management
-        environment:
-            RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-        ports:
-            - "5672:5672"
-            - "15672:15672"
-        networks:
-            vpcbr:
-                ipv4_address: 10.5.0.6
+                ipv4_address: 10.5.0.9
+        links:
+            - php
+#    nodejs:
+#        container_name: sf_nodejs
+#        image: node:alpine
+#        user: "node"
+#        volumes:
+#            - ${SYMFONY_APP_PATH}:/var/www/symfony
+#        working_dir: /var/www/symfony
+#    centrifugo:
+#        container_name: sf_centrifugo
+#        image: centrifugo/centrifugo
+#        command: centrifugo -c config.yml -w --port=8000  --log_level=debug --debug --insecure --address=0.0.0.0
+#        ports:
+#            - "8000:8000"
+#        networks:
+#            vpcbr:
+#                ipv4_address: 10.5.0.5
+#        volumes:
+#            - ./centrifugo/config.yml:/centrifugo/config.yml   # centrifugo -c config.json -w /opt/centrifugo/web
+#    rabbit:
+#        container_name: sf_rabbit
+#        hostname: rabbit
+#        image: rabbitmq:3-management
+#        environment:
+#            RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+#            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+#        ports:
+#            - "5672:5672"
+#            - "15672:15672"
+#        networks:
+#            vpcbr:
+#                ipv4_address: 10.5.0.6
     elasticsearch:
         image: docker.elastic.co/elasticsearch/elasticsearch:6.4.0
-        container_name: sf_elastic
+        container_name: elastic
         environment:
             - cluster.name=docker-cluster
             - bootstrap.memory_lock=true
@@ -92,7 +107,7 @@ services:
                 ipv4_address: 10.5.0.7
     kibana:
         image: docker.elastic.co/kibana/kibana:6.4.0
-        container_name: sf_kibana
+        container_name: kibana
         volumes:
           - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
         environment:

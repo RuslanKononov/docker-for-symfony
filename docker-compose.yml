@@ -15,6 +15,8 @@ services:
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.3
+            # vpcbr1:
+            #
     redis:
         container_name: redis
         image: redis:alpine
@@ -44,13 +46,16 @@ services:
 #            - centrifugo
     nginx:
         container_name: nginx
-        build: nginx
-        ports:
-            - "80:80"
+#        build: nginx
+        image: nginx
         volumes_from:
             - php
         volumes:
             - ./logs/nginx/:/var/log/nginx
+            - "./setup.sh:/usr/local/bin/setup.sh"
+            - "./entrypoint.sh:/entrypoint.sh"
+#            - "./www-root:/srv"
+        entrypoint: /entrypoint.sh
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.9
@@ -112,13 +117,23 @@ services:
           - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
         environment:
             ELASTICSEARCH_URL: http://10.5.0.7:9200
-        ports:
-            - "5601:5601"
         links:
             - elasticsearch
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.8
+    kibana_v2:
+        image: docker.elastic.co/kibana/kibana:6.4.0
+        container_name: kibana_v2
+        volumes:
+            - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+        environment:
+            ELASTICSEARCH_URL: http://10.6.0.7:9200
+        links:
+            - elasticsearch
+        networks:
+            vpcbr2:
+                ipv4_address: 10.6.0.8
 volumes:
     esdata1:
         driver: local
@@ -130,3 +145,10 @@ networks:
             config:
             - subnet: 10.5.0.0/16
               gateway: 10.5.0.1
+    vpcbr2:
+        driver: bridge
+        ipam:
+            config:
+            - subnet: 10.6.0.0/16
+              gateway: 10.6.0.1
+

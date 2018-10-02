@@ -2,7 +2,7 @@ version: '2'
 
 services:
     db:
-        container_name: pgsql
+        container_name: gb_pgsql
         image: postgres:9
         volumes:
             - "./data/db:/var/lib/postgresql"
@@ -10,23 +10,27 @@ services:
             POSTGRES_DB: ${DB}
             POSTGRES_USER: ${DB_USER}
             POSTGRES_PASSWORD: ${DB_PASSWORD}
+        ports:
+            - "5432:5432"
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.3
-            # vpcbr1:
-            #
     redis:
-        container_name: redis
+        container_name: gb_redis
         image: redis:alpine
+        ports:
+            - "6379:6379"
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.4
     php:
-        container_name: php
+        container_name: gb_phpfpm
         build:
             context: php7-fpm
             args:
                 TIMEZONE: ${TIMEZONE}
+        #        ports:
+        #            - "80:8000"
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.2
@@ -36,58 +40,21 @@ services:
         links:
             - redis
             - db
-#            - centrifugo
     nginx:
-        container_name: nginx
-#        build: nginx
-        image: nginx
+        container_name: gb_nginx
+        build: nginx
+        ports:
+            - 80:80
         volumes_from:
             - php
         volumes:
             - ./logs/nginx/:/var/log/nginx
-            - "./setup.sh:/usr/local/bin/setup.sh"
-            - "./entrypoint.sh:/entrypoint.sh"
-#            - "./www-root:/srv"
-        entrypoint: /entrypoint.sh
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.9
-        links:
-            - php
-#    nodejs:
-#        container_name: sf_nodejs
-#        image: node:alpine
-#        user: "node"
-#        volumes:
-#            - ${SYMFONY_APP_PATH}:/var/www/symfony
-#        working_dir: /var/www/symfony
-#    centrifugo:
-#        container_name: sf_centrifugo
-#        image: centrifugo/centrifugo
-#        command: centrifugo -c config.yml -w --port=8000  --log_level=debug --debug --insecure --address=0.0.0.0
-#        ports:
-#            - "8000:8000"
-#        networks:
-#            vpcbr:
-#                ipv4_address: 10.5.0.5
-#        volumes:
-#            - ./centrifugo/config.yml:/centrifugo/config.yml   # centrifugo -c config.json -w /opt/centrifugo/web
-#    rabbit:
-#        container_name: sf_rabbit
-#        hostname: rabbit
-#        image: rabbitmq:3-management
-#        environment:
-#            RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-#            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-#        ports:
-#            - "5672:5672"
-#            - "15672:15672"
-#        networks:
-#            vpcbr:
-#                ipv4_address: 10.5.0.6
     elasticsearch:
         image: docker.elastic.co/elasticsearch/elasticsearch:6.4.0
-        container_name: elastic
+        container_name: gb_elastic
         environment:
             - cluster.name=docker-cluster
             - bootstrap.memory_lock=true
@@ -98,33 +65,25 @@ services:
                 hard: -1
         volumes:
             - esdata1:/usr/share/elasticsearch/data
+        ports:
+            - "9200:9200"
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.7
     kibana:
         image: docker.elastic.co/kibana/kibana:6.4.0
-        container_name: kibana
+        container_name: gb_kibana
         volumes:
-          - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+            - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
         environment:
             ELASTICSEARCH_URL: http://10.5.0.7:9200
+        ports:
+            - "5601:5601"
         links:
             - elasticsearch
         networks:
             vpcbr:
                 ipv4_address: 10.5.0.8
-    kibana_v2:
-        image: docker.elastic.co/kibana/kibana:6.4.0
-        container_name: kibana_v2
-        volumes:
-            - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
-        environment:
-            ELASTICSEARCH_URL: http://10.6.0.7:9200
-        links:
-            - elasticsearch
-        networks:
-            vpcbr2:
-                ipv4_address: 10.6.0.8
 volumes:
     esdata1:
         driver: local
@@ -136,10 +95,3 @@ networks:
             config:
             - subnet: 10.5.0.0/16
               gateway: 10.5.0.1
-    vpcbr2:
-        driver: bridge
-        ipam:
-            config:
-            - subnet: 10.6.0.0/16
-              gateway: 10.6.0.1
-

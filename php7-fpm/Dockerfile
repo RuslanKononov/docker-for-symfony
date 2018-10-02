@@ -41,10 +41,10 @@ RUN apt-get install -y autoconf g++ make git \
   && rm -rf /tmp/* 
 
 COPY conf.d/* /usr/local/etc/php/conf.d/
-#COPY "conf.d/docker-php-memory-limit.ini" "/usr/local/etc/php/conf.d/docker-php-memory-limit.ini"
 
 RUN echo "www-data:www-data" | chpasswd && adduser www-data sudo
-#RUN usermod -u 1001 www-data
+
+RUN usermod -u 1001 www-data
 
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
